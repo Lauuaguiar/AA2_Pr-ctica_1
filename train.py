@@ -12,10 +12,10 @@ print("--- Script de Entrenamiento Práctica 1 ---")
 # --- 1. CONFIGURACIÓN E HIPERPARÁMETROS ---
 # [Requisito del enunciado, fuente: 25, 27, 28, 29]
 
-# --- Configuración 1 (para tu registro de pruebas) ---
-LEARNING_RATE = 0.001
-EPOCHS = 50        # Máximo de épocas. Early Stopping decidirá.
-BATCH_SIZE = 32    # Tamaño del minilote [cite: 29]
+# --- Configuración 2: Tasa de Aprendizaje Más Baja ---
+LEARNING_RATE = 0.0001 
+EPOCHS = 50        
+BATCH_SIZE = 32
 
 # Rutas del dataset (basado en tu estructura)
 # Asumimos que el script corre desde 'Practica1'
@@ -199,7 +199,7 @@ print("\n--- Iniciando el Experimento ---")
 model = SimpleCNN(num_classes=num_classes).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-early_stopper = EarlyStopper(patience=5, path='config1_best_model.pth')
+early_stopper = EarlyStopper(patience=5, path='config2_best_model.pth')
 
 # Guardar historial para gráficas
 history = {
@@ -234,12 +234,13 @@ for epoch in range(EPOCHS):
 print("\n--- Entrenamiento Finalizado ---")
 
 # Cargar el mejor modelo guardado
-model.load_state_dict(torch.load(early_stopper.path))
-print(f"Mejor modelo cargado desde '{early_stopper.path}'")
+# Instanciar Early Stopper (Guardará el mejor modelo de esta configuración)
+early_stopper = EarlyStopper(patience=5, path='config2_best_model.pth')
+
+# ... (omite el bucle de entrenamiento)
 
 # Guardar el historial para usarlo en la visualización
-# Usamos .npy para guardar fácilmente el diccionario
-np.save('config1_history.npy', history)
-print("Historial de entrenamiento guardado en 'config1_history.npy'")
+np.save('config2_history.npy', history)
+print("Historial de entrenamiento guardado en 'config2_history.npy'")
 
 print("\n--- Fin del Script ---")

@@ -44,8 +44,8 @@ class SimpleCNN(nn.Module):
 print("--- Script de Visualización Práctica 1 ---")
 
 # --- 1. CONFIGURACIÓN ---
-MODEL_PATH = 'config1_best_model.pth'
-HISTORY_PATH = 'config1_history.npy'
+MODEL_PATH = 'config2_best_model.pth'
+HISTORY_PATH = 'config2_history.npy'
 BATCH_SIZE = 32 # Usar el mismo batch size es buena idea
 
 # Rutas del dataset (solo necesitamos 'test' para la matriz de confusión)
