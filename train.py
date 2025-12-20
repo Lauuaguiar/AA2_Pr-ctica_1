@@ -5,33 +5,47 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 import numpy as np
-import os # Para verificar rutas
+import os
 
 print("--- Script de Entrenamiento Práctica 1 ---")
 
 # --- 1. CONFIGURACIÓN E HIPERPARÁMETROS ---
-# [Requisito del enunciado, fuente: 25, 27, 28, 29]
 
-# --- Configuración 2: Tasa de Aprendizaje Más Baja ---
-LEARNING_RATE = 0.0001 
-EPOCHS = 50        
+# -----------------------------------------------------
+# CONFIGURACIÓN ACTUAL: CONFIGURACIÓN 3 (BATCH SIZE GRANDE)
+# -----------------------------------------------------
+EXPERIMENT_NAME = 'config3'
+LEARNING_RATE = 0.0001  # Valor optimizado (manteniendo el mejor de la Config. 2)
+EPOCHS = 50             # Máximo de épocas. Early Stopping decidirá.
+BATCH_SIZE = 64         # ¡CAMBIO CLAVE! Minilote más grande
+CONV_LAYERS = 2         # Número de capas convolucionales (2 ó 3)
+
+# -----------------------------------------------------
+# REGISTRO DE CONFIGURACIONES PREVIAS (Para referencia)
+# -----------------------------------------------------
+
+"""
+# CONFIGURACIÓN 1 (BASE)
+EXPERIMENT_NAME = 'config1'
+LEARNING_RATE = 0.001
+EPOCHS = 50
 BATCH_SIZE = 32
+CONV_LAYERS = 2
 
-# Rutas del dataset (basado en tu estructura)
-# Asumimos que el script corre desde 'Practica1'
+# CONFIGURACIÓN 2 (LR BAJO)
+EXPERIMENT_NAME = 'config2'
+LEARNING_RATE = 0.0001
+EPOCHS = 50
+BATCH_SIZE = 32
+CONV_LAYERS = 2
+"""
+
+# Rutas del dataset (Asegúrate que estas rutas son correctas para tu proyecto)
 base_dir = os.getcwd()
 train_dir = os.path.join(base_dir, 'dataset', 'seg_train', 'seg_train')
 test_dir = os.path.join(base_dir, 'dataset', 'seg_test', 'seg_test')
 
-# Verificar que las rutas existen
-if not os.path.exists(train_dir):
-    print(f"Error: No se encuentra el directorio {train_dir}")
-    exit()
-if not os.path.exists(test_dir):
-    print(f"Error: No se encuentra el directorio {test_dir}")
-    exit()
-
-# Dispositivo (GPU si está disponible, sino CPU)
+# Dispositivo
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Usando dispositivo: {device}")
 
@@ -42,7 +56,7 @@ print(f"Usando dispositivo: {device}")
 mean = [0.485, 0.456, 0.406]
 std = [0.229, 0.224, 0.225]
 
-# Transformaciones (Básicas, sin Aumento de Datos por ahora)
+# Transformaciones (Básicas, sin Data Augmentation por ahora)
 data_transforms = transforms.Compose([
     transforms.Resize(150),
     transforms.CenterCrop(150),
@@ -56,10 +70,9 @@ try:
     test_dataset = datasets.ImageFolder(test_dir, transform=data_transforms)
 except Exception as e:
     print(f"Error al cargar datos: {e}")
-    print("Asegúrate de que 'seg_train' y 'seg_test' contengan las carpetas de clases.")
     exit()
     
-# Creamos los DataLoaders
+# Creamos los DataLoaders (usando BATCH_SIZE de la configuración actual)
 train_loader = DataLoader(
     train_dataset,
     batch_size=BATCH_SIZE,
@@ -72,17 +85,17 @@ test_loader = DataLoader(
     shuffle=False
 )
 
-# Obtenemos el número de clases
 num_classes = len(train_dataset.classes)
 print(f"Clases detectadas ({num_classes}): {train_dataset.classes}")
 
 
 # --- 3. DEFINICIÓN DEL MODELO (CNN) ---
-# [Requisito del enunciado, fuente: 7]
 
 class SimpleCNN(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, conv_layers):
+        """ conv_layers: 2 ó 3 """
         super(SimpleCNN, self).__init__()
+        self.conv_layers = conv_layers
         
         # Bloque Convolucional 1
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1)
@@ -93,37 +106,51 @@ class SimpleCNN(nn.Module):
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1)
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
         self.drop2 = nn.Dropout(p=0.25)
-        
-        # Tamaño de entrada para la capa lineal (calculado: 32 * 37 * 37)
-        self.fc_input_size = 32 * 37 * 37 
+
+        # Bloque Convolucional 3 (Opcional, para Config. 4 en adelante)
+        if self.conv_layers == 3:
+            self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1)
+            self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
+            self.drop3_conv = nn.Dropout(p=0.25)
+            
+            # Cálculo para 3 capas: 64 canales * 18 * 18 = 20736
+            self.fc_input_size = 64 * 18 * 18
+        else:
+            # Cálculo para 2 capas: 32 canales * 37 * 37 = 43968
+            self.fc_input_size = 32 * 37 * 37 
 
         # Capas Completamente Conectadas (Clasificador)
         self.fc1 = nn.Linear(self.fc_input_size, 512)
-        self.drop3 = nn.Dropout(p=0.5)
+        self.drop_fc = nn.Dropout(p=0.5) # Dropout para la capa FC
         self.fc2 = nn.Linear(512, num_classes)
 
     def forward(self, x):
         # Bloque 1
-        x = F.relu(self.conv1(x)) # [batch_size, 16, 150, 150]
-        x = self.pool1(x)         # [batch_size, 16, 75, 75]
+        x = F.relu(self.conv1(x))
+        x = self.pool1(x)
         x = self.drop1(x)
         
         # Bloque 2
-        x = F.relu(self.conv2(x)) # [batch_size, 32, 75, 75]
-        x = self.pool2(x)         # [batch_size, 32, 37, 37]
+        x = F.relu(self.conv2(x))
+        x = self.pool2(x)
         x = self.drop2(x)
+        
+        # Bloque 3 (Condicional)
+        if self.conv_layers == 3:
+            x = F.relu(self.conv3(x))
+            x = self.pool3(x)
+            x = self.drop3_conv(x)
         
         # Aplanado
         x = x.view(-1, self.fc_input_size)
         
         # Clasificador
         x = F.relu(self.fc1(x))
-        x = self.drop3(x)
-        x = self.fc2(x) # Logits de salida
+        x = self.drop_fc(x)
+        x = self.fc2(x)
         return x
 
 # --- 4. CLASE DE PARADA ANTICIPADA (Early Stopping) ---
-# [Requisito del enunciado, fuente: 10]
 
 class EarlyStopper:
     def __init__(self, patience=5, min_delta=0, path='best_model.pth'):
@@ -146,8 +173,7 @@ class EarlyStopper:
             if self.counter >= self.patience:
                 self.early_stop = True
 
-# --- 5. FUNCIONES DE ENTRENAMIENTO Y PRUEBA ---
-
+# --- 5. FUNCIONES DE ENTRENAMIENTO Y PRUEBA (CORREGIDAS) ---
 def train_step(model, loader, criterion, optimizer, device):
     model.train()
     epoch_loss = 0
@@ -156,10 +182,8 @@ def train_step(model, loader, criterion, optimizer, device):
     
     for images, labels in loader:
         images, labels = images.to(device), labels.to(device)
-        
         outputs = model(images)
         loss = criterion(outputs, labels)
-        
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -169,6 +193,7 @@ def train_step(model, loader, criterion, optimizer, device):
         epoch_correct += torch.sum(preds == labels.data)
         total_samples += labels.size(0)
         
+    # CORRECCIÓN: total_samples es un entero, se elimina .item()
     return epoch_loss / total_samples, epoch_correct.double() / total_samples
 
 def test_step(model, loader, criterion, device):
@@ -180,7 +205,6 @@ def test_step(model, loader, criterion, device):
     with torch.no_grad():
         for images, labels in loader:
             images, labels = images.to(device), labels.to(device)
-            
             outputs = model(images)
             loss = criterion(outputs, labels)
             
@@ -189,17 +213,22 @@ def test_step(model, loader, criterion, device):
             epoch_correct += torch.sum(preds == labels.data)
             total_samples += labels.size(0)
             
+    # CORRECCIÓN: total_samples es un entero, se elimina .item()
     return epoch_loss / total_samples, epoch_correct.double() / total_samples
 
 # --- 6. BUCLE DE ENTRENAMIENTO PRINCIPAL ---
 
 print("\n--- Iniciando el Experimento ---")
 
-# Instanciar modelo, pérdida, optimizador y early stopper
-model = SimpleCNN(num_classes=num_classes).to(device)
+# Instanciar modelo (usando el número de capas de la configuración actual)
+model = SimpleCNN(num_classes=num_classes, conv_layers=CONV_LAYERS).to(device)
+
+# Definir Pérdida y Optimizador
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-early_stopper = EarlyStopper(patience=5, path='config2_best_model.pth')
+
+# Instanciar Early Stopper con nombre de archivo dinámico
+early_stopper = EarlyStopper(patience=5, path=f'{EXPERIMENT_NAME}_best_model.pth')
 
 # Guardar historial para gráficas
 history = {
@@ -207,7 +236,7 @@ history = {
     'test_loss': [], 'test_acc': []
 }
 
-print(f"Entrenando por un máximo de {EPOCHS} épocas...")
+print(f"Entrenando {EXPERIMENT_NAME} (LR={LEARNING_RATE}, BS={BATCH_SIZE}, Capas={CONV_LAYERS})...")
 for epoch in range(EPOCHS):
     
     train_loss, train_acc = train_step(model, train_loader, criterion, optimizer, device)
@@ -233,14 +262,12 @@ for epoch in range(EPOCHS):
 
 print("\n--- Entrenamiento Finalizado ---")
 
-# Cargar el mejor modelo guardado
-# Instanciar Early Stopper (Guardará el mejor modelo de esta configuración)
-early_stopper = EarlyStopper(patience=5, path='config2_best_model.pth')
+# Cargar el mejor modelo guardado (opcional, pero buena práctica)
+model.load_state_dict(torch.load(early_stopper.path))
+print(f"Mejor modelo cargado desde '{early_stopper.path}'")
 
-# ... (omite el bucle de entrenamiento)
-
-# Guardar el historial para usarlo en la visualización
-np.save('config2_history.npy', history)
-print("Historial de entrenamiento guardado en 'config2_history.npy'")
+# Guardar el historial con nombre dinámico
+np.save(f'{EXPERIMENT_NAME}_history.npy', history)
+print(f"Historial de entrenamiento guardado en '{EXPERIMENT_NAME}_history.npy'")
 
 print("\n--- Fin del Script ---")
