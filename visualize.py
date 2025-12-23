@@ -12,189 +12,138 @@ import torch.nn.functional as F
 print("--- Script de Visualización Práctica 1 ---")
 
 # =========================================================
-# === 1. CONFIGURACIÓN DEL EXPERIMENTO (¡MODIFICA AQUÍ!) ===
+# === 1. REGISTRO DE CONFIGURACIONES (HISTORIAL) ========
 # =========================================================
 
-# --- Nombre del experimento a visualizar ---
+# --- CONFIGURACIÓN 1 ---
+# EXPERIMENT_NAME = 'config1'
+# CONV_LAYERS_LOAD = 2
 
-EXPERIMENT_NAME = 'config3' 
+# --- CONFIGURACIÓN 2 ---
+# EXPERIMENT_NAME = 'config2'
+# CONV_LAYERS_LOAD = 2
+
+# --- CONFIGURACIÓN 3 ---
+# EXPERIMENT_NAME = 'config3'
+# CONV_LAYERS_LOAD = 2
 
 # ---------------------------------------------------------
+# === CONFIGURACIÓN ACTUAL: CONFIGURACIÓN 4 (ARQUITECTURA) ===
+# ---------------------------------------------------------
+EXPERIMENT_NAME = 'config4'  
+CONV_LAYERS_LOAD = 3         # IMPORTANTE: 3 para la arquitectura nueva
+BATCH_SIZE_VIS = 64          # Usar el mismo batch size del entrenamiento
 
-MODEL_PATH = f'{EXPERIMENT_NAME}_best_model.pth'
-HISTORY_PATH = f'{EXPERIMENT_NAME}_history.npy'
-BATCH_SIZE = 64 # Se recomienda usar el BATCH_SIZE más reciente
+# =========================================================
 
-# Rutas del dataset (solo necesitamos 'test' para la matriz de confusión)
-base_dir = os.getcwd()
-test_dir = os.path.join(base_dir, 'dataset', 'seg_test', 'seg_test')
+# --- GESTIÓN DE RUTAS AUTOMÁTICA ---
+FOLDER_PATH = EXPERIMENT_NAME
+MODEL_PATH = os.path.join(FOLDER_PATH, f'{EXPERIMENT_NAME}_best_model.pth')
+HISTORY_PATH = os.path.join(FOLDER_PATH, f'{EXPERIMENT_NAME}_history.npy')
 
-# Dispositivo
+# Rutas de salida para las imágenes (se guardan dentro de la carpeta del experimento)
+PLOT_PATH = os.path.join(FOLDER_PATH, f'{EXPERIMENT_NAME}_plots.png')
+CM_PATH = os.path.join(FOLDER_PATH, f'{EXPERIMENT_NAME}_confusion_matrix.png')
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Usando dispositivo: {device}")
+print(f"Visualizando: {EXPERIMENT_NAME} | Capas: {CONV_LAYERS_LOAD}")
 
-
-# --- 2. DEFINICIÓN DEL MODELO (COPIADA DE train.py) ---
-# Necesitamos la misma clase con la lógica de capas condicional (2 o 3)
+# --- 2. DEFINICIÓN DEL MODELO (Debe ser idéntica a train.py) ---
 class SimpleCNN(nn.Module):
     def __init__(self, num_classes, conv_layers):
         super(SimpleCNN, self).__init__()
         self.conv_layers = conv_layers
-        
-        # Bloque Convolucional 1
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, padding=1)
-        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.drop1 = nn.Dropout(p=0.25)
+        self.conv1 = nn.Conv2d(3, 16, kernel_size=3, padding=1)
+        self.pool1 = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
+        self.pool2 = nn.MaxPool2d(2, 2)
 
-        # Bloque Convolucional 2
-        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1)
-        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.drop2 = nn.Dropout(p=0.25)
-
-        # Bloque Convolucional 3 (Debe coincidir con el modelo guardado)
         if self.conv_layers == 3:
-            self.conv3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1)
-            self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
-            self.drop3_conv = nn.Dropout(p=0.25)
+            self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+            self.pool3 = nn.MaxPool2d(2, 2)
             self.fc_input_size = 64 * 18 * 18
         else:
             self.fc_input_size = 32 * 37 * 37 
 
-        # Capas Completamente Conectadas (Clasificador)
         self.fc1 = nn.Linear(self.fc_input_size, 512)
-        self.drop_fc = nn.Dropout(p=0.5)
         self.fc2 = nn.Linear(512, num_classes)
+        self.dropout = nn.Dropout(0.5)
 
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = self.pool1(x)
-        x = self.drop1(x)
-        
-        x = F.relu(self.conv2(x))
-        x = self.pool2(x)
-        x = self.drop2(x)
-        
+        x = self.pool1(F.relu(self.conv1(x)))
+        x = self.pool2(F.relu(self.conv2(x)))
         if self.conv_layers == 3:
-            x = F.relu(self.conv3(x))
-            x = self.pool3(x)
-            x = self.drop3_conv(x)
-        
+            x = self.pool3(F.relu(self.conv3(x)))
         x = x.view(-1, self.fc_input_size)
-        
         x = F.relu(self.fc1(x))
-        x = self.drop_fc(x)
+        x = self.dropout(x)
         x = self.fc2(x)
         return x
-# --- Fin de la definición del modelo ---
 
+# --- 3. CARGAR HISTORIAL Y GENERAR GRÁFICAS ---
+print(f"Cargando historial desde {HISTORY_PATH}...")
+try:
+    history = np.load(HISTORY_PATH, allow_pickle=True).item()
+    
+    plt.figure(figsize=(12, 5))
+    # Gráfica Accuracy
+    plt.subplot(1, 2, 1)
+    plt.plot(history['train_acc'], label='Entrenamiento')
+    plt.plot(history['test_acc'], label='Prueba')
+    plt.title(f'Precisión - {EXPERIMENT_NAME}')
+    plt.xlabel('Época'); plt.ylabel('Acc'); plt.legend()
 
-# --- 3. CARGAR DATOS DE PRUEBA ---
-mean = [0.485, 0.456, 0.406]
-std = [0.229, 0.224, 0.225]
+    # Gráfica Loss
+    plt.subplot(1, 2, 2)
+    plt.plot(history['train_loss'], label='Entrenamiento')
+    plt.plot(history['test_loss'], label='Prueba')
+    plt.title(f'Pérdida - {EXPERIMENT_NAME}')
+    plt.xlabel('Época'); plt.ylabel('Loss'); plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(PLOT_PATH)
+    print(f"Gráficas guardadas en: {PLOT_PATH}")
+except Exception as e:
+    print(f"Error al procesar historial: {e}")
+
+# --- 4. MATRIZ DE CONFUSIÓN Y REPORTE ---
+print("Evaluando modelo en el conjunto de prueba...")
+test_dir = os.path.join(os.getcwd(), 'dataset', 'seg_test', 'seg_test')
 data_transforms = transforms.Compose([
-    transforms.Resize(150),
-    transforms.CenterCrop(150),
-    transforms.ToTensor(),
-    transforms.Normalize(mean, std)
+    transforms.Resize(150), transforms.CenterCrop(150), transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
 try:
     test_dataset = datasets.ImageFolder(test_dir, transform=data_transforms)
-except Exception as e:
-    print(f"Error cargando 'test_dataset': {e}")
-    exit()
-
-test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
-num_classes = len(test_dataset.classes)
-class_names = test_dataset.classes
-print(f"Clases cargadas: {class_names}")
-
-
-# --- 4. CARGAR MODELO ENTRENADO ---
-# Determinar las capas usadas en el modelo guardado (asumimos 2 para las Configs 1, 2, 3)
-# NOTA: Para Config. 4, DEBERÁS cambiar esta línea manualmente a CONV_LAYERS=3
-CONV_LAYERS_LOAD = 2 
-
-# Instanciamos la arquitectura y cargamos los pesos
-model = SimpleCNN(num_classes=num_classes, conv_layers=CONV_LAYERS_LOAD).to(device)
-
-try:
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
-except Exception as e:
-    print(f"Error al cargar el modelo '{MODEL_PATH}': {e}")
-    print(f"Asegúrate de que {EXPERIMENT_NAME} ha terminado su entrenamiento.")
-    exit()
+    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE_VIS, shuffle=False)
     
-model.eval()
+    model = SimpleCNN(len(test_dataset.classes), CONV_LAYERS_LOAD).to(device)
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+    model.eval()
 
+    all_preds, all_labels = [], []
+    with torch.no_grad():
+        for imgs, lbls in test_loader:
+            outputs = model(imgs.to(device))
+            _, p = torch.max(outputs, 1)
+            all_preds.extend(p.cpu().numpy())
+            all_labels.extend(lbls.numpy())
 
-# --- 5. GENERAR GRÁFICAS DE PÉRDIDA Y PRECISIÓN ---
-print(f"Cargando historial desde '{HISTORY_PATH}'...")
-try:
-    history = np.load(HISTORY_PATH, allow_pickle=True).item()
+    # Reporte de texto
+    print(f"\nReporte para {EXPERIMENT_NAME}:")
+    print(classification_report(all_labels, all_preds, target_names=test_dataset.classes))
+
+    # Matriz visual
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(confusion_matrix(all_labels, all_preds), annot=True, fmt='d', 
+                cmap='Blues', xticklabels=test_dataset.classes, yticklabels=test_dataset.classes)
+    plt.title(f'Matriz de Confusión - {EXPERIMENT_NAME}')
+    plt.xlabel('Predicción'); plt.ylabel('Real')
+    plt.savefig(CM_PATH)
+    print(f"Matriz de confusión guardada en: {CM_PATH}")
+
 except Exception as e:
-    print(f"Error al cargar el historial '{HISTORY_PATH}': {e}")
-    exit()
+    print(f"Error en la evaluación: {e}")
 
-print("Generando gráficas de Pérdida y Precisión...")
-plt.figure(figsize=(12, 5))
-
-# Gráfica de Precisión (Accuracy)
-plt.subplot(1, 2, 1)
-plt.plot(history['train_acc'], label='Precisión Entrenamiento')
-plt.plot(history['test_acc'], label='Precisión Prueba (Validación)')
-plt.title(f'Precisión - {EXPERIMENT_NAME}')
-plt.xlabel('Época')
-plt.ylabel('Precisión')
-plt.legend()
-
-# Gráfica de Pérdida (Loss)
-plt.subplot(1, 2, 2)
-plt.plot(history['train_loss'], label='Pérdida Entrenamiento')
-plt.plot(history['test_loss'], label='Pérdida Prueba (Validación)')
-plt.title(f'Pérdida - {EXPERIMENT_NAME}')
-plt.xlabel('Época')
-plt.ylabel('Pérdida')
-plt.legend()
-
-plt.tight_layout()
-plt.savefig(f'{EXPERIMENT_NAME}_plots.png')
-print(f"Gráficas guardadas en '{EXPERIMENT_NAME}_plots.png'")
-
-
-# --- 6. GENERAR MATRIZ DE CONFUSIÓN ---
-print("Generando Matriz de Confusión...")
-all_preds = []
-all_labels = []
-
-with torch.no_grad():
-    for images, labels in test_loader:
-        images, labels = images.to(device), labels.to(device)
-        
-        outputs = model(images)
-        _, preds = torch.max(outputs, 1)
-        
-        all_preds.extend(preds.cpu().numpy())
-        all_labels.extend(labels.cpu().numpy())
-
-cm = confusion_matrix(all_labels, all_preds)
-
-print(f"\n--- Reporte de Clasificación ({EXPERIMENT_NAME}) ---")
-report = classification_report(all_labels, all_preds, target_names=class_names, zero_division=0)
-print(report)
-
-plt.figure(figsize=(10, 8))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-            xticklabels=class_names, yticklabels=class_names)
-plt.title(f'Matriz de Confusión - {EXPERIMENT_NAME}')
-plt.xlabel('Predicción')
-plt.ylabel('Etiqueta Real')
-plt.savefig(f'{EXPERIMENT_NAME}_confusion_matrix.png')
-print(f"Matriz de confusión guardada en '{EXPERIMENT_NAME}_confusion_matrix.png'")
-
-# Extraer precisión final
-accuracy_report = classification_report(all_labels, all_preds, output_dict=True, target_names=class_names, zero_division=0)
-overall_accuracy = accuracy_report['accuracy']
-print(f"\nPRECISIÓN FINAL GLOBAL: {overall_accuracy:.4f}")
-
-print("\n--- Fin del Script de Visualización ---")
+print("--- Fin del script de visualización ---")
