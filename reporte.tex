@@ -1,0 +1,100 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- PAQUETES ---
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{setspace} % Para manejar el interlineado en la portada
+\geometry{margin=2.5cm}
+
+% --- DISEÑO DE TÍTULOS ---
+\titleformat{\section}{\large\bfseries\color{black}}{}{0em}{}[\titlerule]
+
+\begin{document}
+
+% --- PORTADA MEJORADA ---
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+    {\huge\bfseries Aprendizaje Automático II\par}
+    \vspace{1cm}
+    {\Large\bfseries Práctica 1: Clasificación de Imágenes mediante Redes Neuronales Convolucionales (CNN)\par}
+    \vspace{2.5cm}
+    
+    {\large\textit{Autoras:}\par}
+    \vspace{0.5cm}
+    {\Large Laura Aguiar \par}
+    {\Large Lucía Hernández \par}
+    
+    \vfill
+    {\large \today \par}
+    \vspace{1cm}
+    \rule{\linewidth}{0.5mm}
+\end{titlepage}
+
+\section{Introducción y Objetivo}
+Este informe detalla el desarrollo de un sistema de \textbf{Aprendizaje Profundo} diseñado para clasificar imágenes en seis categorías: edificios, bosques, glaciares, montañas, mar y calles. El objetivo central fue aplicar una metodología científica de experimentación para optimizar una CNN hasta superar el \textbf{85\% de precisión}.
+
+\section{Arquitectura del Sistema}
+El modelo se basa en una arquitectura de Red Neuronal Convolucional, que procesa la información en tres etapas:
+\begin{itemize}
+    \item \textbf{Capas Convolucionales:} Actúan como extractores de características (bordes, texturas y formas).
+    \item \textbf{Dropout (0.5):} Técnica de regularización que "apaga" neuronas aleatoriamente para obligar a la red a no depender de patrones específicos, evitando el sobreajuste.
+    \item \textbf{Early Stopping:} Un monitor que detiene el entrenamiento si el modelo deja de mejorar en el conjunto de prueba, garantizando que guardamos siempre la mejor versión del modelo.
+\end{itemize}
+
+
+
+\section{Metodología de Experimentación}
+Se han ejecutado cinco configuraciones, ajustando parámetros de forma aislada para comprender su impacto.
+
+\begin{table}[H]
+\centering
+\caption{Tabla comparativa de configuraciones y resultados}
+\begin{spacing}{1.2}
+\begin{tabular}{@{}llccccc@{}}
+\toprule
+\textbf{Exp.} & \textbf{Estrategia} & \textbf{LR} & \textbf{Batch} & \textbf{Capas} & \textbf{Data Aug.} & \textbf{Accuracy} \\ \midrule
+Config 1 & Base & 0.001 & 32 & 2 & No & 80\% \\
+Config 2 & Suavizado LR & 0.0001 & 32 & 2 & No & 82\% \\
+Config 3 & Aumento Batch & 0.0001 & 64 & 2 & No & 76\% \\
+Config 4 & Capacidad Visual & 0.0001 & 64 & 3 & No & 83\% \\
+Config 5 & \textbf{Robustez Final} & 0.0001 & 64 & 3 & \textbf{Sí} & \textbf{86\%} \\ \bottomrule
+\end{tabular}
+\end{spacing}
+\end{table}
+
+\section{Análisis de la Configuración Ganadora (Config 5)}
+La Configuración 5 alcanzó el \textbf{86\% de precisión}, cumpliendo con los objetivos de la práctica.
+
+\subsection{El impacto del Data Augmentation}
+La diferencia clave radica en el \textbf{Aumento de Datos}. Al introducir variaciones aleatorias (rotación, zoom), el modelo deja de memorizar imágenes concretas y empieza a entender conceptos visuales abstractos. Esto explica por qué, con la misma arquitectura que la Config 4, logramos subir 3 puntos porcentuales.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{config5/config5_plots.png}
+    \caption{Curvas de Precisión y Pérdida. Se observa que el entrenamiento es estable y el error de prueba disminuye de forma constante.}
+\end{figure}
+
+\subsection{Diagnóstico mediante Matriz de Confusión}
+Al analizar la matriz generada en \texttt{config5}, determinamos:
+\begin{itemize}
+    \item \textbf{Fortalezas:} El modelo identifica con gran precisión los paisajes de tipo \textit{forest} (98\% de recall).
+    \item \textbf{Confusiones Comunes:} Se detecta un solapamiento entre \textit{buildings} y \textit{street}, debido a la presencia de cemento y estructuras verticales en ambas clases.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.65\textwidth]{config5/config5_confusion_matrix.png}
+    \caption{Matriz de confusión: el rendimiento en la diagonal principal valida la eficacia del modelo.}
+\end{figure}
+
+\section{Conclusiones}
+La experimentación demuestra que un modelo de Deep Learning no solo depende de su tamaño, sino de la calidad del entrenamiento. El uso de un \textbf{Learning Rate bajo}, una \textbf{arquitectura de 3 capas} y, sobre todo, la \textbf{regularización mediante aumento de datos}, han sido los pilares para obtener un sistema robusto y preciso.
+
+\end{document}

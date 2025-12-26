@@ -1,0 +1,8 @@
+\babel@toc {spanish}{}\relax 
+\contentsline {section}{\numberline {1}Introducción y Objetivo}{2}{}%
+\contentsline {section}{\numberline {2}Arquitectura del Sistema}{2}{}%
+\contentsline {section}{\numberline {3}Metodología de Experimentación}{2}{}%
+\contentsline {section}{\numberline {4}Análisis de la Configuración Ganadora (Config 5)}{2}{}%
+\contentsline {subsection}{\numberline {4.1}El impacto del Data Augmentation}{2}{}%
+\contentsline {subsection}{\numberline {4.2}Diagnóstico mediante Matriz de Confusión}{3}{}%
+\contentsline {section}{\numberline {5}Conclusiones}{3}{}%
