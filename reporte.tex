@@ -9,7 +9,8 @@
 \usepackage{float}
 \usepackage{xcolor}
 \usepackage{titlesec}
-\usepackage{setspace} % Para manejar el interlineado en la portada
+\usepackage{setspace}
+\usepackage{hyperref} % Para que el link de GitHub sea clickable
 \geometry{margin=2.5cm}
 
 % --- DISEÑO DE TÍTULOS ---
@@ -17,7 +18,7 @@
 
 \begin{document}
 
-% --- PORTADA MEJORADA ---
+% --- PORTADA ---
 \begin{titlepage}
     \centering
     \vspace*{2cm}
@@ -31,27 +32,34 @@
     {\Large Laura Aguiar \par}
     {\Large Lucía Hernández \par}
     
+    \vspace{2cm}
+    {\large\textit{Repositorio del Proyecto:}\par}
+    \vspace{0.3cm}
+    \texttt{\url{https://github.com/Lauuaguiar/AA2_Pr-ctica_1}}
+    
     \vfill
     {\large \today \par}
     \vspace{1cm}
     \rule{\linewidth}{0.5mm}
 \end{titlepage}
 
+\newpage
+
 \section{Introducción y Objetivo}
 Este informe detalla el desarrollo de un sistema de \textbf{Aprendizaje Profundo} diseñado para clasificar imágenes en seis categorías: edificios, bosques, glaciares, montañas, mar y calles. El objetivo central fue aplicar una metodología científica de experimentación para optimizar una CNN hasta superar el \textbf{85\% de precisión}.
 
 \section{Arquitectura del Sistema}
-El modelo se basa en una arquitectura de Red Neuronal Convolucional, que procesa la información en tres etapas:
+El modelo se basa en una arquitectura de Red Neuronal Convolucional, que procesa la información en tres etapas fundamentales:
 \begin{itemize}
-    \item \textbf{Capas Convolucionales:} Actúan como extractores de características (bordes, texturas y formas).
-    \item \textbf{Dropout (0.5):} Técnica de regularización que "apaga" neuronas aleatoriamente para obligar a la red a no depender de patrones específicos, evitando el sobreajuste.
-    \item \textbf{Early Stopping:} Un monitor que detiene el entrenamiento si el modelo deja de mejorar en el conjunto de prueba, garantizando que guardamos siempre la mejor versión del modelo.
+    \item \textbf{Capas Convolucionales:} Actúan como extractores de características visuales (bordes, texturas y formas complejas).
+    \item \textbf{Dropout (0.5):} Técnica de regularización que "apaga" neuronas aleatoriamente durante el entrenamiento. Esto evita que la red dependa en exceso de píxeles específicos, reduciendo el sobreajuste.
+    \item \textbf{Early Stopping:} Mecanismo que monitoriza el error en el conjunto de prueba y detiene el proceso si no hay mejora en 5 épocas, asegurando la mejor versión del modelo.
 \end{itemize}
 
 
 
 \section{Metodología de Experimentación}
-Se han ejecutado cinco configuraciones, ajustando parámetros de forma aislada para comprender su impacto.
+Se han ejecutado cinco configuraciones, ajustando parámetros de forma aislada para comprender su impacto en el rendimiento global.
 
 \begin{table}[H]
 \centering
@@ -73,28 +81,28 @@ Config 5 & \textbf{Robustez Final} & 0.0001 & 64 & 3 & \textbf{Sí} & \textbf{86
 La Configuración 5 alcanzó el \textbf{86\% de precisión}, cumpliendo con los objetivos de la práctica.
 
 \subsection{El impacto del Data Augmentation}
-La diferencia clave radica en el \textbf{Aumento de Datos}. Al introducir variaciones aleatorias (rotación, zoom), el modelo deja de memorizar imágenes concretas y empieza a entender conceptos visuales abstractos. Esto explica por qué, con la misma arquitectura que la Config 4, logramos subir 3 puntos porcentuales.
+La diferencia clave radica en el \textbf{Aumento de Datos}. Al introducir variaciones aleatorias como rotaciones y zooms, el modelo se ve obligado a aprender conceptos visuales abstractos en lugar de memorizar imágenes. Esto explica por qué, con la misma arquitectura que la Config 4, se logró subir un 3\% la precisión.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{config5/config5_plots.png}
-    \caption{Curvas de Precisión y Pérdida. Se observa que el entrenamiento es estable y el error de prueba disminuye de forma constante.}
+    \caption{Curvas de Precisión y Pérdida (Config 5). La estabilidad de las curvas valida el uso de un Learning Rate bajo (0.0001).}
 \end{figure}
 
 \subsection{Diagnóstico mediante Matriz de Confusión}
-Al analizar la matriz generada en \texttt{config5}, determinamos:
+Al analizar la matriz generada, determinamos:
 \begin{itemize}
-    \item \textbf{Fortalezas:} El modelo identifica con gran precisión los paisajes de tipo \textit{forest} (98\% de recall).
-    \item \textbf{Confusiones Comunes:} Se detecta un solapamiento entre \textit{buildings} y \textit{street}, debido a la presencia de cemento y estructuras verticales en ambas clases.
+    \item \textbf{Fortalezas:} Excelente identificación de paisajes de tipo \textit{forest} (98\% de recall).
+    \item \textbf{Confusiones Comunes:} Ligero solapamiento entre \textit{buildings} y \textit{street}, debido a la similitud de materiales geométricos (asfalto y concreto).
 \end{itemize}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.65\textwidth]{config5/config5_confusion_matrix.png}
-    \caption{Matriz de confusión: el rendimiento en la diagonal principal valida la eficacia del modelo.}
+    \caption{Matriz de confusión final del mejor modelo.}
 \end{figure}
 
 \section{Conclusiones}
-La experimentación demuestra que un modelo de Deep Learning no solo depende de su tamaño, sino de la calidad del entrenamiento. El uso de un \textbf{Learning Rate bajo}, una \textbf{arquitectura de 3 capas} y, sobre todo, la \textbf{regularización mediante aumento de datos}, han sido los pilares para obtener un sistema robusto y preciso.
+La experimentación demuestra que la calidad del entrenamiento es tan relevante como la arquitectura. El uso de un \textbf{Learning Rate bajo}, una \textbf{arquitectura de 3 capas} y la \textbf{regularización mediante aumento de datos}, han sido los pilares fundamentales para obtener un sistema robusto y capaz de generalizar con éxito.
 
 \end{document}
